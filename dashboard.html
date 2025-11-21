@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eco-BinGo Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        nav {
+            background: rgba(0,0,0,0.9);
+            padding: 1.5rem 2rem;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo { font-size: 1.8rem; font-weight: bold; color: #4ade80; }
+        .container { padding: 2rem; max-width: 1400px; margin: 0 auto; }
+        .header { color: white; margin-bottom: 2rem; }
+        .header h1 { font-size: 2.5rem; margin-bottom: 0.5rem; }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .stat {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .stat h3 {
+            color: #666;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            margin-bottom: 0.5rem;
+        }
+        .stat-value { font-size: 2.5rem; font-weight: bold; color: #333; }
+        
+        #map {
+            width: 100%;
+            height: 500px;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        
+        .section-title {
+            color: white;
+            font-size: 1.8rem;
+            margin: 2rem 0 1rem;
+            font-weight: bold;
+        }
+        
+        .route-box {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            margin-bottom: 2rem;
+        }
+        
+        .route-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .route-stat {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .route-stat-label {
+            font-size: 0.8rem;
+            opacity: 0.9;
+            margin-bottom: 0.5rem;
+        }
+        .route-stat-value { font-size: 1.8rem; font-weight: bold; }
+        
+        button {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1rem;
+            transition: transform 0.2s;
+        }
+        button:hover { transform: scale(1.05); }
+        button:active { transform: scale(0.98); }
+        
+        .dustbins {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .dustbin {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            transition: transform 0.3s;
+        }
+        .dustbin:hover { transform: translateY(-5px); }
+        
+        .dustbin-header {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 1.2rem;
+        }
+        .dustbin-id { font-size: 1.2rem; font-weight: bold; }
+        
+        .status {
+            display: inline-block;
+            margin-left: 1rem;
+            padding: 0.3rem 0.7rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        .status-empty { background: #4ade80; color: white; }
+        .status-medium { background: #fbbf24; color: white; }
+        .status-full { background: #ef4444; color: white; }
+        
+        .dustbin-body { padding: 1.5rem; }
+        .fill-pct {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 1rem;
+        }
+        
+        .progress {
+            width: 100%;
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 1rem;
+        }
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #4ade80, #22c55e);
+            transition: width 0.5s ease;
+        }
+        .progress-bar.full { background: linear-gradient(90deg, #ef4444, #dc2626); }
+        
+        .dustbin-info {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+        
+        .route-path {
+            background: #f0f9ff;
+            border-left: 4px solid #0ea5e9;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+        .route-item {
+            padding: 0.5rem;
+            margin: 0.3rem 0;
+            background: white;
+            border-radius: 6px;
+        }
+        
+        @media (max-width: 768px) {
+            .dustbins { grid-template-columns: 1fr; }
+            .stats { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="logo">♻️ Eco-BinGo</div>
+        <div>AI-Powered Waste Management System</div>
+        <div style="font-size: 0.9rem; gap: 1.5rem; display: flex;">
+            <a href="#objectives" style="color: #4ade80; cursor: pointer; text-decoration: none; font-weight: 500;">Objectives</a>
+            <a href="#credits" style="color: #4ade80; cursor: pointer; text-decoration: none; font-weight: 500;">Credits</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="header">
+            <h1>📊 Real-Time Dashboard</h1>
+            <p style="opacity: 0.9;">Live GPS • IoT Sensors • Route Optimization</p>
+        </div>
+
+        <!-- Statistics Cards -->
+        <div class="stats">
+            <div class="stat">
+                <h3>🗑️ Active Bins</h3>
+                <div class="stat-value" id="totalBins">0</div>
+            </div>
+            <div class="stat">
+                <h3>⚠️ Full Bins</h3>
+                <div class="stat-value" id="fullBins">0</div>
+            </div>
+            <div class="stat">
+                <h3>📈 Avg Fill</h3>
+                <div class="stat-value" id="avgFill">0%</div>
+            </div>
+            <div class="stat">
+                <h3>🚚 Truck Status</h3>
+                <div class="stat-value" style="font-size: 1.5rem; color: #4ade80;" id="truckStatus">Active</div>
+            </div>
+        </div>
+
+        <!-- Map Section -->
+        <h2 class="section-title">🗺️ Live Map</h2>
+        <div style="margin-bottom: 1rem;">
+            <button onclick="addBin()">➕ Add Dustbin</button>
+            <button onclick="window.open('/gps', '_blank')" style="background: #4ade80; margin-left: 0.5rem;">
+                📱 Open GPS Tracker
+            </button>
+        </div>
+        <div id="map"></div>
+
+        <!-- Route Optimization -->
+        <h2 class="section-title">🚀 Route Optimization</h2>
+        <div class="route-box">
+            <div class="route-stats">
+                <div class="route-stat">
+                    <div class="route-stat-label">Optimal Distance</div>
+                    <div class="route-stat-value" id="optDist">-- km</div>
+                </div>
+                <div class="route-stat">
+                    <div class="route-stat-label">Random Route</div>
+                    <div class="route-stat-value" id="randDist">-- km</div>
+                </div>
+                <div class="route-stat">
+                    <div class="route-stat-label">Fuel Needed</div>
+                    <div class="route-stat-value" id="fuel">-- L</div>
+                </div>
+                <div class="route-stat">
+                    <div class="route-stat-label">Cost</div>
+                    <div class="route-stat-value" id="cost">₹--</div>
+                </div>
+                <div class="route-stat">
+                    <div class="route-stat-label">💰 Savings</div>
+                    <div class="route-stat-value" id="savings">₹--</div>
+                </div>
+                <div class="route-stat">
+                    <div class="route-stat-label">Efficiency Gain</div>
+                    <div class="route-stat-value" id="efficiency">--%</div>
+                </div>
+            </div>
+            <button onclick="optimize()" style="width: 100%;">
+                🤖 Calculate Optimal Route
+            </button>
+            <div id="routePath"></div>
+        </div>
+
+        <!-- Dustbins Grid -->
+        <h2 class="section-title">🗑️ Dustbin Status</h2>
+        <div class="dustbins" id="bins"></div>
+
+        <!-- Predictions -->
+        <h2 class="section-title">🔮 ML Predictions</h2>
+        <div class="route-box" id="predictions">
+            <p style="color: #666;">Loading predictions...</p>
+        </div>
+
+        <!-- Objectives Section -->
+        <div id="objectives" style="background: white; padding: 2.5rem; border-radius: 12px; margin-top: 3rem; box-shadow: 0 4px 15px rgba(0,0,0,0.15); scroll-margin-top: 100px;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 2rem; border-radius: 12px; margin-bottom: 2rem; text-align: center;">
+                <h1 style="margin: 0 0 0.5rem 0; font-size: 2.5rem;">🏆 MITS DiLSE-2025</h1>
+                <p style="margin: 0.5rem 0; font-size: 1.1rem;">Emerging Technologies</p>
+                <p style="margin: 0; font-size: 1.1rem; opacity: 0.9;">Category: Senior</p>
+            </div>
+            <h2 style="color: #333; margin-bottom: 1.5rem; font-size: 2rem;">🎯 Project Objectives</h2>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
+                <div style="padding: 1.5rem; background: #f0f4ff; border-left: 4px solid #667eea; border-radius: 8px;">
+                    <h3 style="color: #667eea; margin-bottom: 0.5rem;">📊 Efficiency Enhancement</h3>
+                    <p style="color: #666; line-height: 1.6;">Reduce garbage collection route distance by 32% using AI-powered route optimization (Traveling Salesman Problem solver)</p>
+                </div>
+                <div style="padding: 1.5rem; background: #f0fff4; border-left: 4px solid #4ade80; border-radius: 8px;">
+                    <h3 style="color: #4ade80; margin-bottom: 0.5rem;">🌍 Sustainability Focus</h3>
+                    <p style="color: #666; line-height: 1.6;">Lower fuel consumption by 29% and reduce CO2 emissions by 40% through optimized collection paths</p>
+                </div>
+                <div style="padding: 1.5rem; background: #fff5f0; border-left: 4px solid #f97316; border-radius: 8px;">
+                    <h3 style="color: #f97316; margin-bottom: 0.5rem;">🔗 IoT Connectivity</h3>
+                    <p style="color: #666; line-height: 1.6;">Integrate real-time sensors (dustbin fill levels) with GPS tracking for complete waste management visibility</p>
+                </div>
+                <div style="padding: 1.5rem; background: #fef3f0; border-left: 4px solid #ec4899; border-radius: 8px;">
+                    <h3 style="color: #ec4899; margin-bottom: 0.5rem;">🤖 Machine Learning</h3>
+                    <p style="color: #666; line-height: 1.6;">Predict when dustbins will reach capacity using ML algorithms to prevent overflow and optimize collection timing</p>
+                </div>
+                <div style="padding: 1.5rem; background: #f0f9ff; border-left: 4px solid #0ea5e9; border-radius: 8px;">
+                    <h3 style="color: #0ea5e9; margin-bottom: 0.5rem;">💰 Cost Reduction</h3>
+                    <p style="color: #666; line-height: 1.6;">Save ₹2,70,000 per truck annually through optimized routes, benefiting municipalities with 50+ vehicles</p>
+                </div>
+                <div style="padding: 1.5rem; background: #fef3c7; border-left: 4px solid #eab308; border-radius: 8px;">
+                    <h3 style="color: #ca8a04; margin-bottom: 0.5rem;">🏙️ Urban Scalability</h3>
+                    <p style="color: #666; line-height: 1.6;">Implementable across Indian cities without requiring infrastructure changes - works with existing dustbins and vehicles</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Credits Section -->
+        <div id="credits" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem; border-radius: 12px; margin-top: 2rem; margin-bottom: 2rem; text-align: center;">
+            <h2 style="margin-bottom: 2rem; font-size: 2rem;">👥 Team Credits</h2>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem;">
+                <div>
+                    <div style="width: 100px; height: 100px; background: rgba(255,255,255,0.2); border-radius: 50%; margin: 0 auto 1rem; overflow: hidden;">
+                        <img src="/static/images/shrinjani.jpeg" alt="Shrinjani Sinha" style="width: 100%; height: 100%; object-fit: cover;">
+                    </div>
+                    <h3 style="margin-bottom: 0.5rem;">Shrinjani Sinha</h3>
+                    <p style="opacity: 0.9; font-size: 0.9rem;">Class 12th A</p>
+                </div>
+                <div>
+                    <div style="width: 100px; height: 100px; background: rgba(255,255,255,0.2); border-radius: 50%; margin: 0 auto 1rem; overflow: hidden;">
+                        <img src="/static/images/naitik.jpeg" alt="Naitik Nilaigiri" style="width: 100%; height: 100%; object-fit: cover;">
+                    </div>
+                    <h3 style="margin-bottom: 0.5rem;">Naitik Nilaigiri</h3>
+                    <p style="opacity: 0.9; font-size: 0.9rem;">Class 11th A</p>
+                </div>
+                <div>
+                    <div style="width: 100px; height: 100px; background: rgba(255,255,255,0.2); border-radius: 50%; margin: 0 auto 1rem; overflow: hidden;">
+                        <img src="/static/images/smruti.jpeg" alt="Smruti Rekha Jena" style="width: 100%; height: 100%; object-fit: cover;">
+                    </div>
+                    <h3 style="margin-bottom: 0.5rem;">Smruti Rekha Jena</h3>
+                    <p style="opacity: 0.9; font-size: 0.9rem;">Class 11th A</p>
+                </div>
+                <div>
+                    <div style="width: 100px; height: 100px; background: rgba(255,255,255,0.2); border-radius: 50%; margin: 0 auto 1rem; overflow: hidden;">
+                        <img src="/static/images/dhanesh.jpeg" alt="R. Dhanesh Dora" style="width: 100%; height: 100%; object-fit: cover;">
+                    </div>
+                    <h3 style="margin-bottom: 0.5rem;">R. Dhanesh Dora</h3>
+                    <p style="opacity: 0.9; font-size: 0.9rem;">Class 11th A</p>
+                </div>
+            </div>
+            <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.2);">
+                <p style="font-size: 0.95rem; line-height: 1.8; max-width: 800px; margin: 0 auto;">
+                    <strong>Eco-BinGo</strong> represents our commitment to solving real-world waste management challenges through emerging technologies. 
+                    We believe that combining IoT, AI, and data analytics can transform urban waste collection into an efficient, sustainable, and scalable system.
+                    Our project demonstrates how technology can create positive environmental and economic impact while being implementable in the Indian context.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Auto-detect if we're using HTTP or HTTPS
+        const protocol = window.location.protocol;
+        const API = `${protocol}//${window.location.host}/api`;
+        let map, truckMarker;
+        let binMarkers = {};
+
+        // Initialize on load
+        window.onload = () => {
+            initMap();
+            loadData();
+            setInterval(loadData, 2000);
+        };
+
+        function initMap() {
+            map = L.map('map').setView([19.3087, 84.0155], 13);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap'
+            }).addTo(map);
+
+            // Truck marker with BIG EMOJI
+            const truckIcon = L.divIcon({
+                html: '<div style="font-size:40px;line-height:1;text-align:center;">🚚</div>',
+                className: '',
+                iconSize: [40, 40],
+                iconAnchor: [20, 20]
+            });
+            
+            truckMarker = L.marker([19.3087, 84.0155], {icon: truckIcon})
+                .bindPopup('<b>🚚 Garbage Truck</b><br>Live GPS Tracking')
+                .addTo(map);
+        }
+
+        async function loadData() {
+            try {
+                const [binsResp, truckResp] = await Promise.all([
+                    fetch(`${API}/dustbins`),
+                    fetch(`${API}/truck`)
+                ]);
+                
+                const bins = await binsResp.json();
+                const truck = await truckResp.json();
+                
+                updateMap(bins, truck);
+                renderBins(bins);
+                updateStats(bins);
+                loadPredictions();
+            } catch (e) {
+                console.error('Load error:', e);
+            }
+        }
+
+        function updateMap(bins, truck) {
+            truckMarker.setLatLng([truck.lat, truck.lon]);
+            
+            Object.keys(bins).forEach(id => {
+                const bin = bins[id];
+                const emoji = bin.fill >= 80 ? '🗑️' : bin.fill >= 50 ? '🗑️' : '🗑️';
+                const color = bin.fill >= 80 ? '#ef4444' : bin.fill >= 50 ? '#fbbf24' : '#4ade80';
+                
+                if (!binMarkers[id]) {
+                    const icon = L.divIcon({
+                        html: `<div style="font-size:28px;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3));">${emoji}</div>`,
+                        className: '',
+                        iconSize: [28, 28],
+                        iconAnchor: [14, 14]
+                    });
+                    
+                    binMarkers[id] = L.marker([bin.lat, bin.lon], {icon: icon})
+                        .bindPopup(`<b>${bin.name}</b><br>Fill: ${Math.round(bin.fill)}%<br>Status: <span style="color:${color};font-weight:bold;">${bin.status}</span>`)
+                        .addTo(map);
+                } else {
+                    binMarkers[id].setLatLng([bin.lat, bin.lon]);
+                    const newIcon = L.divIcon({
+                        html: `<div style="font-size:28px;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3));">${emoji}</div>`,
+                        className: '',
+                        iconSize: [28, 28],
+                        iconAnchor: [14, 14]
+                    });
+                    binMarkers[id].setIcon(newIcon);
+                }
+            });
+        }
+
+        function renderBins(bins) {
+            const grid = document.getElementById('bins');
+            grid.innerHTML = '';
+            
+            Object.keys(bins).forEach(id => {
+                const b = bins[id];
+                const isFull = b.fill >= 80;
+                const isMed = b.fill >= 50;
+                const statusClass = isFull ? 'status-full' : isMed ? 'status-medium' : 'status-empty';
+                const statusText = isFull ? 'FULL' : isMed ? 'MEDIUM' : 'EMPTY';
+                
+                const card = document.createElement('div');
+                card.className = 'dustbin';
+                card.innerHTML = `
+                    <div class="dustbin-header">
+                        <div class="dustbin-id">
+                            ${b.name}
+                            <span class="status ${statusClass}">${statusText}</span>
+                        </div>
+                    </div>
+                    <div class="dustbin-body">
+                        <div class="fill-pct">${Math.round(b.fill)}%</div>
+                        <div class="progress">
+                            <div class="progress-bar ${isFull ? 'full' : ''}" 
+                                 style="width: ${b.fill}%"></div>
+                        </div>
+                        <div class="dustbin-info">📍 ${b.location}</div>
+                        <div class="dustbin-info">🌐 ${b.lat.toFixed(4)}, ${b.lon.toFixed(4)}</div>
+                        ${id !== "1" ? `
+                            <button onclick="deleteBin('${id}')" 
+                                    style="width:100%;margin-top:1rem;background:#ef4444;">
+                                🗑️ Delete
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function updateStats(bins) {
+            const total = Object.keys(bins).length;
+            const full = Object.values(bins).filter(b => b.fill >= 80).length;
+            const avg = total > 0 ? 
+                Math.round(Object.values(bins).reduce((s, b) => s + b.fill, 0) / total) : 0;
+            
+            document.getElementById('totalBins').textContent = total;
+            document.getElementById('fullBins').textContent = full;
+            document.getElementById('avgFill').textContent = avg + '%';
+        }
+
+        async function optimize() {
+            try {
+                const resp = await fetch(`${API}/optimize`);
+                const data = await resp.json();
+                
+                if (data.message) {
+                    alert(data.message);
+                    return;
+                }
+                
+                document.getElementById('optDist').textContent = data.optimal_distance + ' km';
+                document.getElementById('randDist').textContent = data.random_distance + ' km';
+                document.getElementById('fuel').textContent = data.optimal_fuel + ' L';
+                document.getElementById('cost').textContent = '₹' + data.optimal_cost;
+                document.getElementById('savings').textContent = '₹' + data.savings;
+                document.getElementById('efficiency').textContent = data.efficiency_gain + '%';
+                
+                if (data.route && data.route.length > 0) {
+                    let html = '<div class="route-path">';
+                    html += '<h3 style="margin-bottom:0.5rem;">📍 Optimal Collection Order:</h3>';
+                    data.route.forEach((bin, i) => {
+                        html += `<div class="route-item">${i+1}. ${bin.name}</div>`;
+                    });
+                    html += '</div>';
+                    document.getElementById('routePath').innerHTML = html;
+                }
+                
+                alert(`✅ Route Optimized!\n\nOptimal: ${data.optimal_distance} km\nRandom: ${data.random_distance} km\nSavings: ₹${data.savings}\nEfficiency: +${data.efficiency_gain}%`);
+            } catch (e) {
+                alert('Error: ' + e);
+            }
+        }
+
+        async function addBin() {
+            const name = prompt('Dustbin Name (e.g., Bin 2 - Market):');
+            if (!name) return;
+            
+            const location = prompt('Location (e.g., Rayagada Market):');
+            if (!location) return;
+            
+            const lat = prompt('Latitude (e.g., 19.31):');
+            if (!lat || isNaN(lat)) {
+                alert('Invalid latitude');
+                return;
+            }
+            
+            const lon = prompt('Longitude (e.g., 84.02):');
+            if (!lon || isNaN(lon)) {
+                alert('Invalid longitude');
+                return;
+            }
+            
+            try {
+                const resp = await fetch(`${API}/dustbins`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name, location, lat, lon})
+                });
+                
+                if (resp.ok) {
+                    alert('✅ Dustbin added!');
+                    loadData();
+                } else {
+                    alert('❌ Error adding dustbin');
+                }
+            } catch (e) {
+                alert('Error: ' + e);
+            }
+        }
+
+        async function deleteBin(id) {
+            if (!confirm('Delete this dustbin?')) return;
+            
+            try {
+                const resp = await fetch(`${API}/dustbins/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                if (resp.ok) {
+                    alert('✅ Deleted!');
+                    if (binMarkers[id]) {
+                        map.removeLayer(binMarkers[id]);
+                        delete binMarkers[id];
+                    }
+                    loadData();
+                } else {
+                    alert('❌ Error deleting');
+                }
+            } catch (e) {
+                alert('Error: ' + e);
+            }
+        }
+
+        async function loadPredictions() {
+            try {
+                const resp = await fetch(`${API}/predictions`);
+                const preds = await resp.json();
+                
+                let html = '<h3 style="margin-bottom:1rem;">📋 Collection Priority:</h3>';
+                
+                if (preds.length === 0) {
+                    html += '<p style="color:#666;">All bins are empty!</p>';
+                } else {
+                    preds.slice(0, 5).forEach(p => {
+                        const color = p.urgency === 'CRITICAL' ? '#ef4444' : 
+                                     p.urgency === 'HIGH' ? '#fbbf24' : '#4ade80';
+                        html += `
+                            <div style="display:flex;justify-content:space-between;padding:0.8rem;margin:0.5rem 0;background:#f8f9fa;border-left:4px solid ${color};border-radius:4px;">
+                                <div><strong>${p.name}</strong> (${Math.round(p.current_fill)}%)</div>
+                                <div style="color:${color};font-weight:bold;">
+                                    ${p.urgency} - ${p.days_until_full} days
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+                
+                document.getElementById('predictions').innerHTML = html;
+            } catch (e) {
+                console.error('Prediction error:', e);
+            }
+        }
+    </script>
+</body>
+</html>
